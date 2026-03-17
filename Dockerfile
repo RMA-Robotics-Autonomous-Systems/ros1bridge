@@ -90,7 +90,9 @@ WORKDIR /noetic_ws
 RUN rosinstall_generator ros_core --rosdistro noetic --deps --tar > noetic-minimal.rosinstall
 RUN vcs import --input noetic-minimal.rosinstall src
 
-RUN rosdep install --from-paths ./src --ignore-packages-from-source --rosdistro noetic -y
+RUN apt-get update && apt-get install -y libboost-filesystem-dev
+RUN rosdep install --from-paths ./src --ignore-packages-from-source --rosdistro noetic -y \
+    --skip-keys="libboost-filesystem"
 
 ## FIXING FROM THE GUIDE
 #
@@ -100,6 +102,7 @@ RUN rosdep install --from-paths ./src --ignore-packages-from-source --rosdistro 
 
 RUN rm src/rosconsole/src/rosconsole/impl/rosconsole_log4cxx.cpp
 RUN curl -o src/rosconsole/src/rosconsole/impl/rosconsole_log4cxx.cpp https://raw.githubusercontent.com/ros/rosconsole/9f930c007dd40aa7ede771b8859b529e024d7bfb/src/rosconsole/impl/rosconsole_log4cxx.cpp
+RUN sed -i 's/LocationInfo(file, function, line)/LocationInfo(file, "", function, line)/g' src/rosconsole/src/rosconsole/impl/rosconsole_log4cxx.cpp
 
 ## FIXING MUTEX ISSUE
 #
@@ -108,7 +111,7 @@ RUN curl -o src/rosconsole/src/rosconsole/impl/rosconsole_log4cxx.cpp https://ra
 #   We need colorama installed for that
 
 RUN curl -o change_cpp.py https://gist.githubusercontent.com/Meltwin/1ee35296d2bb86fee19d639580e3c91f/raw/13b8d626733981cdf58244708e5cba1ee5d87e1c/change_cpp.py
-RUN pip3 install colorama
+RUN apt-get update && apt-get install -y python3-colorama
 # Fix the script to work in Docker (no terminal available)
 RUN sed -i 's/DISPLAY_WIDTH = min(WANTED_WIDTH, os.get_terminal_size().columns - 2)/DISPLAY_WIDTH = WANTED_WIDTH/g' change_cpp.py
 
@@ -140,7 +143,12 @@ RUN bash -c "source ${ROS1_INSTALL_PATH}/setup.bash && \
     source ${ROS2_INSTALL_PATH}/setup.bash && \
     colcon build --symlink-install --packages-select ros1_bridge --cmake-force-configure --cmake-args -DCMAKE_BUILD_TYPE=Release"
 
-
+#--------------------------------------------------------
+#  Add Zenoh 
+#  https://docs.ros.org/en/jazzy/Installation/RMW-Implementations/Non-DDS-Implementations/Working-with-Zenoh.html
+#   sudo apt install ros-jazzy-rmw-zenoh-cpp
+#---------------------------------------------------------
+RUN apt-get update && apt-get install -y ros-jazzy-rmw-zenoh-cpp
 
 #--------------------------------------------------------
 #  Clean up
