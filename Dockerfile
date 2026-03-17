@@ -1,9 +1,15 @@
 # Multi-stage Dockerfile
-# Stage 1: ROS 2 Humble - Ubuntu Development Setup
-# See: https://docs.ros.org/en/humble/Installation/Alternatives/Ubuntu-Development-Setup.html
-FROM ubuntu:22.04 AS ros2-humble
+# Stage 1: ROS 2 Jazzy - Ubuntu Development Setup
+# See: https://docs.ros.org/en/jazzy/Installation/Alternatives/Ubuntu-Development-Setup.html
+FROM ubuntu:24.04 AS ros2-jazzy
 
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Generate locale - required by ROS 2 and by Noble's minimal Docker base
+RUN apt-get update && apt-get install -y locales \
+    && locale-gen en_US en_US.UTF-8 \
+    && update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 
@@ -16,32 +22,27 @@ RUN apt-get update && apt-get install -y curl \
     && curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb" \
     && dpkg -i /tmp/ros2-apt-source.deb
 
-# Install common packages
+# Install development tools (Jazzy / Ubuntu 24.04 Noble set)
 RUN apt-get update && apt-get install -y \
-    python3-flake8-docstrings \
+    python3-flake8-blind-except \
+    python3-flake8-class-newline \
+    python3-flake8-deprecated \
+    python3-mypy \
     python3-pip \
+    python3-pytest \
     python3-pytest-cov \
+    python3-pytest-mock \
+    python3-pytest-repeat \
+    python3-pytest-rerunfailures \
+    python3-pytest-runner \
+    python3-pytest-timeout \
     ros-dev-tools
 
-# Install ubuntu 22.04 packages
-RUN apt-get install -y \
-    python3-flake8-blind-except \
-    python3-flake8-builtins \
-    python3-flake8-class-newline \
-    python3-flake8-comprehensions \
-    python3-flake8-deprecated \
-    python3-flake8-import-order \
-    python3-flake8-quotes \
-    python3-pytest-repeat \
-    python3-pytest-rerunfailures
-
-
-COPY ./ros2_minimal.repos /ros2_humble.repos
 
 # get ROS2 code
-RUN mkdir -p /ros2_humble/src
-WORKDIR /ros2_humble
-RUN vcs import --input /ros2_humble.repos src
+RUN mkdir -p /ros2_jazzy/src
+WORKDIR /ros2_jazzy
+RUN vcs import --input https://raw.githubusercontent.com/ros2/ros2/jazzy/ros2.repos src
 
 # upgrade all
 RUN apt-get update && apt-get upgrade -y
@@ -49,9 +50,9 @@ RUN apt-get update && apt-get upgrade -y
 # install dependencies
 RUN rosdep init \
     && rosdep update \
-    && rosdep install --from-paths src --ignore-src -y --rosdistro humble \
-    --skip-keys="rti-connext-dds-6.0.1 urdfdom_headers rmw_cyclonedds_cpp cyclonedds \
-    iceoryx_binding_c rmw_connextdds lifecycle"
+    && rosdep install --from-paths src --ignore-src -y --rosdistro jazzy \
+    --skip-keys="fastcdr rti-connext-dds-6.0.1 urdfdom_headers rmw_cyclonedds_cpp cyclonedds \
+    iceoryx_binding_c rmw_connextdds lifecycle rosidl_generator_rs ros-jazzy-rosidl-generator-rs"
 
 # Build ROS2 from source
 RUN colcon build --symlink-install
@@ -63,14 +64,20 @@ RUN colcon build --symlink-install
 #--------------------------------------------------------
 
 # point 1.1
-RUN apt-get update && apt-get -y install python3-rosdep python3-rosinstall-generator python3-vcstools python3-vcstool build-essential
+# python3-setuptools provides distutils which was removed from Python 3.12 stdlib
+RUN apt-get update && apt-get -y install \
+    python3-rosdep python3-rosinstall-generator python3-vcstools python3-vcstool \
+    build-essential python3-setuptools
 
 # point 1.X
 RUN sed -i 's|https://raw.githubusercontent.com/ros/rosdistro/master/rosdep/base.yaml|https://gist.githubusercontent.com/Meltwin/0317ae7481c94da7fd66c3eea8d40740/raw/04f6404249b0430523671410891815e63eadb2fe/base.yaml|g' /etc/ros/rosdep/sources.list.d/20-default.list
 
-# point 1.Y
-RUN add-apt-repository ppa:malcscott/ppa
-RUN apt update && apt install -y hddtemp
+# point 1.Y - hddtemp is not in Ubuntu 24.04 (Noble) repos
+# Install the focal amd64 deb directly; libsensors5 satisfies its only runtime dep
+RUN apt-get install -y libsensors5 \
+    && curl -L -o /tmp/hddtemp.deb \
+    "https://launchpad.net/ubuntu/+archive/primary/+files/hddtemp_0.3-beta15-53_amd64.deb" \
+    && dpkg -i /tmp/hddtemp.deb || apt-get install -f -y
 
 # point 1.2
 RUN rosdep update
@@ -122,7 +129,7 @@ WORKDIR /ros1_bridge_ws/src
 RUN git clone https://github.com/ros2/ros1_bridge
 
 ENV ROS1_INSTALL_PATH=/noetic_ws/devel_isolated
-ENV ROS2_INSTALL_PATH=/ros2_humble/install
+ENV ROS2_INSTALL_PATH=/ros2_jazzy/install
 
 # Build ros1_bridge following the official instructions:
 # 1. First source ROS1

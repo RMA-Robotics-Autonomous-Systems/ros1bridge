@@ -3,37 +3,42 @@
 Docker image for building and running `ros1_bridge` with:
 
 - ROS 1 Noetic built from source
-- ROS 2 Humble built from source
+- ROS 2 Jazzy built from source
 - `ros1_bridge` built against both installations
 
-The image is based on Ubuntu 22.04 and is intended to provide a ready-to-use bridge environment where the ROS 1, ROS 2, and bridge setup files are sourced automatically at container startup.
+The image is based on Ubuntu 24.04 (Noble) and is intended to provide a ready-to-use bridge environment where the ROS 1, ROS 2, and bridge setup files are sourced automatically at container startup.
+
+> **Note:** ROS 1 Noetic's officially supported platform is Ubuntu 20.04 (Focal). Building it on
+> Ubuntu 24.04 (Noble) is an unsupported community port. It requires source-level patches and
+> workarounds (Python 3.12 `distutils` removal, Noble-era library differences, etc.) and may
+> need additional fixes as dependencies evolve.
 
 ## What this repository contains
 
 - [Dockerfile](Dockerfile): builds the full environment
 - [entrypoint.sh](entrypoint.sh): sources ROS 1, ROS 2, and `ros1_bridge`
-- [ros2_minimal.repos](ros2_minimal.repos): ROS 2 source manifest used for the Humble build
+- [ros2_minimal.repos](ros2_minimal.repos): optional local manifest (not used by default)
 
 ## What the Docker image does
 
 The Docker build performs these steps:
 
-1. Starts from `ubuntu:22.04`
-2. Installs ROS 2 Humble development dependencies
-3. Imports a minimal ROS 2 Humble source tree from [ros2_minimal.repos](ros2_minimal.repos)
-4. Builds ROS 2 in `/ros2_humble`
-5. Installs the dependencies required to build ROS 1 Noetic from source on Ubuntu 22.04
+1. Starts from `ubuntu:24.04`
+2. Installs ROS 2 Jazzy development dependencies
+3. Imports the official ROS 2 Jazzy source tree from `https://raw.githubusercontent.com/ros2/ros2/jazzy/ros2.repos`
+4. Builds ROS 2 in `/ros2_jazzy`
+5. Installs the dependencies required to build ROS 1 Noetic from source on Ubuntu 24.04
 6. Builds ROS 1 Noetic in `/noetic_ws`
 7. Applies compatibility fixes required by the chosen ROS 1 build procedure
 8. Clones and builds `ros1_bridge` in `/ros1_bridge_ws`
 9. Installs an entrypoint that sources:
     - `/noetic_ws/devel_isolated/setup.bash`
-    - `/ros2_humble/install/setup.bash`
+    - `/ros2_jazzy/install/setup.bash`
     - `/ros1_bridge_ws/install/setup.bash`
 
 ## Resulting layout inside the container
 
-- `/ros2_humble`: ROS 2 Humble source workspace and install tree
+- `/ros2_jazzy`: ROS 2 Jazzy source workspace and install tree
 - `/noetic_ws`: ROS 1 Noetic source workspace and isolated build/devel outputs
 - `/ros1_bridge_ws`: `ros1_bridge` workspace
 
@@ -73,14 +78,16 @@ ros2 pkg executables ros1_bridge
 
 ## Notes
 
-- The image builds ROS 2 from a minimal curated source list, not from the full desktop distribution.
-- The ROS 1 build includes manual fixes and patches required for this Ubuntu 22.04-based workflow.
+- The image builds ROS 2 from the official Jazzy source manifest (`ros2.repos`).
+- The ROS 1 build includes manual fixes and patches required for this Ubuntu 24.04 (Noble)-based workflow.
+    - Python 3.12 removed `distutils` from the standard library; `python3-setuptools` provides the replacement.
+    - `hddtemp` is not in Noble's package repos and is installed from the Ubuntu Focal archive.
 - `apt-get clean` is run at the end of the build, but the final image is still expected to be large.
 
 ## References
 
 The Dockerfile follows these upstream approaches:
 
-- ROS 2 Humble Ubuntu development setup
-- ROS 1 Noetic source build workflow for Ubuntu 22.04 compatibility
+- ROS 2 Jazzy Ubuntu development setup
+- ROS 1 Noetic source build workflow adapted for Ubuntu 24.04 Noble
 - Official `ros1_bridge` build sequence: source ROS 1, source ROS 2, then build the bridge
