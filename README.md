@@ -62,6 +62,34 @@ docker run --rm -it ros1bridge bash
 
 Because the entrypoint sources all setup files automatically, the shell starts with ROS 1, ROS 2, and `ros1_bridge` already available.
 
+## Run with Docker Compose (Zenoh + dynamic bridge)
+
+Start a bridge service using the provided Compose file:
+
+```bash
+docker compose up --build
+```
+
+If you changed compose configuration, recreate the service:
+
+```bash
+docker compose down && docker compose up --build
+```
+
+The compose service:
+
+- sets `RMW_IMPLEMENTATION=rmw_zenoh_cpp`
+- expects an external `roscore` at `ROS_MASTER_URI` (defaults to `http://127.0.0.1:11311`)
+- supports `ROS_DOMAIN_ID` through environment variables
+- runs `ros2 run ros1_bridge dynamic_bridge --bridge-all-1to2-topics --bridge-all-2to1-topics`
+- uses the container entrypoint to source ROS 1/ROS 2 overlays and load Zenoh RMW runtime libraries
+
+Stop it with:
+
+```bash
+docker compose down
+```
+
 ## Typical usage
 
 Inside the container, you can run the dynamic bridge with:

@@ -1,0 +1,22 @@
+services:
+  ros_bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ros1bridge:latest
+    container_name: ros1_bridge
+    network_mode: host
+    ipc: host
+    pid: host
+    environment:
+      ROS_MASTER_URI: ${ROS_MASTER_URI:-http://127.0.0.1:11311}
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+      RMW_IMPLEMENTATION: rmw_zenoh_cpp
+    command:
+      - ros2
+      - run
+      - ros1_bridge
+      - dynamic_bridge
+      - --bridge-all-1to2-topics
+      - --bridge-all-2to1-topics
+    restart: unless-stopped

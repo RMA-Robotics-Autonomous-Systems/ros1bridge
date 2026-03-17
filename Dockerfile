@@ -43,6 +43,8 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /ros2_jazzy/src
 WORKDIR /ros2_jazzy
 RUN vcs import --input https://raw.githubusercontent.com/ros2/ros2/jazzy/ros2.repos src
+# Add Zenoh RMW from source (Jazzy branch)
+RUN git clone -b jazzy https://github.com/ros2/rmw_zenoh.git src/rmw_zenoh
 
 # upgrade all
 RUN apt-get update && apt-get upgrade -y
@@ -142,13 +144,6 @@ WORKDIR /ros1_bridge_ws
 RUN bash -c "source ${ROS1_INSTALL_PATH}/setup.bash && \
     source ${ROS2_INSTALL_PATH}/setup.bash && \
     colcon build --symlink-install --packages-select ros1_bridge --cmake-force-configure --cmake-args -DCMAKE_BUILD_TYPE=Release"
-
-#--------------------------------------------------------
-#  Add Zenoh 
-#  https://docs.ros.org/en/jazzy/Installation/RMW-Implementations/Non-DDS-Implementations/Working-with-Zenoh.html
-#   sudo apt install ros-jazzy-rmw-zenoh-cpp
-#---------------------------------------------------------
-RUN apt-get update && apt-get install -y ros-jazzy-rmw-zenoh-cpp
 
 #--------------------------------------------------------
 #  Clean up
